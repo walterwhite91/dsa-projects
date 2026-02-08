@@ -1,9 +1,10 @@
+# matcher.py
 from typing import Any, Dict, List
 from normalizer import tokenize
 from hashmap import ExactMatchIndex
 from inverted_index import InvertedIndex
 
-AnswerObj = Dict[str, Any]
+QObj = Dict[str, Any]
 
 def _token_overlap_score(q_tokens: set[str], cand_tokens: set[str]) -> float:
     if not q_tokens:
@@ -11,7 +12,7 @@ def _token_overlap_score(q_tokens: set[str], cand_tokens: set[str]) -> float:
     return len(q_tokens & cand_tokens) / len(q_tokens)
 
 class QuestionSearcher:
-    def __init__(self, dataset: List[AnswerObj]) -> None:
+    def __init__(self, dataset: List[QObj]) -> None:
         self.dataset = dataset
         self.by_id = {int(o["_id"]): o for o in dataset}
 
@@ -33,7 +34,7 @@ class QuestionSearcher:
         threshold: float = 0.4
     ) -> Dict[str, Any]:
 
-        # 1️⃣ Exact match
+        # Exact match
         exact = self.exact.get(query)
         if exact:
             return {
@@ -44,16 +45,20 @@ class QuestionSearcher:
                     "question": exact["question"],
                     "score": 1.0,
                     "subject": exact.get("subject"),
-                    "marks": exact.get("marks")
+                    "semester": exact.get("semester"),
+                    "mark": exact.get("mark"),
+                    "paper_type": exact.get("paper_type"),
+                    "section": exact.get("section"),
+                    "family": exact.get("family")
                 }]
             }
 
-        # similar match
+        # Similar match
         q_tokens = set(tokenize(query))
-        candidates = self.inv.candidates(list(q_tokens))
+        candidate_ids = self.inv.candidates(list(q_tokens))
 
         scored = []
-        for cid in candidates:
+        for cid in candidate_ids:
             score = _token_overlap_score(q_tokens, self.q_tokens[cid])
             if score >= threshold:
                 obj = self.by_id[cid]
@@ -62,7 +67,11 @@ class QuestionSearcher:
                     "question": obj["question"],
                     "score": round(score, 4),
                     "subject": obj.get("subject"),
-                    "marks": obj.get("marks")
+                    "semester": obj.get("semester"),
+                    "mark": obj.get("mark"),
+                    "paper_type": obj.get("paper_type"),
+                    "section": obj.get("section"),
+                    "family": obj.get("family")
                 })
 
         scored.sort(key=lambda x: x["score"], reverse=True)

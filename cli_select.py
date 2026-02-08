@@ -1,46 +1,42 @@
 from typing import List, Dict, Any
 
-AnswerObj = Dict[str, Any]
+QObj = Dict[str, Any]
 
-def choose_semester(dataset: List[AnswerObj]) -> int:
-    semesters = sorted({
-        obj["semester"]
-        for obj in dataset
-        if "semester" in obj
-    })
-
-    if not semesters:
-        raise ValueError("No semester field found in dataset")
-
-    print("\nAvailable Semesters:")
-    for i, sem in enumerate(semesters, start=1):
-        print(f"{i}. Semester {sem}")
+def _choose_from_set(values, label):
+    values = sorted(values)
+    print(f"\nAvailable {label}:")
+    for i, v in enumerate(values, start=1):
+        print(f"{i}. {v}")
 
     while True:
         try:
-            choice = int(input("Select semester number: "))
-            if 1 <= choice <= len(semesters):
-                return semesters[choice - 1]
+            c = int(input(f"Select {label} number: "))
+            if 1 <= c <= len(values):
+                return values[c - 1]
         except ValueError:
             pass
         print("Invalid selection. Try again.")
 
-def choose_subject(dataset: List[AnswerObj]) -> str:
-    subjects = sorted({
-        obj["subject"]
-        for obj in dataset
-        if "subject" in obj
-    })
+def choose_semester(dataset: List[QObj]) -> int:
+    return _choose_from_set(
+        {q["semester"] for q in dataset if "semester" in q},
+        "semesters"
+    )
 
-    print("\nAvailable Subjects:")
-    for i, sub in enumerate(subjects, start=1):
-        print(f"{i}. {sub}")
+def choose_subject(dataset: List[QObj]) -> str:
+    return _choose_from_set(
+        {q["subject"] for q in dataset if "subject" in q},
+        "subjects"
+    )
 
-    while True:
-        try:
-            choice = int(input("Select subject number: "))
-            if 1 <= choice <= len(subjects):
-                return subjects[choice - 1]
-        except ValueError:
-            pass
-        print("Invalid selection. Try again.")
+def choose_paper_type(dataset: List[QObj]) -> str:
+    return _choose_from_set(
+        {q["paper_type"] for q in dataset if "paper_type" in q},
+        "paper types"
+    )
+
+def choose_section(dataset: List[QObj]) -> str:
+    return _choose_from_set(
+        {q["section"] for q in dataset if "section" in q},
+        "sections"
+    )

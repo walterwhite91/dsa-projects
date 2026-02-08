@@ -1,85 +1,49 @@
-from typing import Any, Dict, List
-from normalizer import tokenize
-from hashmap import ExactMatchIndex
-from inverted_index import InvertedIndex
+import json
+import sys
+from loader import load_dataset
+from matcher import QuestionSearcher
+from cli_select import (
+    choose_semester,
+    choose_subject,
+    choose_paper_type,
+    choose_section
+)
 
-QObj = Dict[str, Any]
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: python3 main.py <dataset.json|dataset.jsonl>")
+        sys.exit(1)
 
-def _token_overlap_score(q_tokens: set[str], cand_tokens: set[str]) -> float:
-    if not q_tokens:
-        return 0.0
-    return len(q_tokens & cand_tokens) / len(q_tokens)
+    dataset = load_dataset(sys.argv[1])
 
-class QuestionSearcher:
-    def __init__(self, dataset: List[QObj]) -> None:
-        self.dataset = dataset
-        self.by_id = {int(o["_id"]): o for o in dataset}
+    semester = choose_semester(dataset)
+    dataset = [q for q in dataset if q.get("semester") == semester]
 
-        self.exact = ExactMatchIndex()
-        self.exact.build(dataset)
+    subject = choose_subject(dataset)
+    dataset = [q for q in dataset if q.get("subject") == subject]
 
-        self.inv = InvertedIndex()
-        self.inv.build(dataset)
+    paper_type = choose_paper_type(dataset)
+    dataset = [q for q in dataset if q.get("paper_type") == paper_type]
 
-        self.q_tokens = {
-            int(o["_id"]): set(tokenize(o.get("question", "")))
-            for o in dataset
-        }
+    section = choose_section(dataset)
+    dataset = [q for q in dataset if q.get("section") == section]
 
-    def find_similar_questions(
-        self,
-        query: str,
-        top_k: int = 5,
-        threshold: float = 0.4
-    ) -> Dict[str, Any]:
+    print(
+        f"\nLoaded {len(dataset)} questions "
+        f"(Sem {semester}, {subject}, {paper_type}, Section {section})\n"
+    )
 
-        # Exact match
-        exact = self.exact.get(query)
-        if exact:
-            return {
-                "matched": True,
-                "match_type": "exact",
-                "results": [{
-                    "id": exact["_id"],
-                    "question": exact["question"],
-                    "score": 1.0,
-                    "subject": exact.get("subject"),
-                    "semester": exact.get("semester"),
-                    "mark": exact.get("mark"),
-                    "paper_type": exact.get("paper_type"),
-                    "section": exact.get("section"),
-                    "family": exact.get("family")
-                }]
-            }
+    searcher = QuestionSearcher(dataset)
 
-        # Similar match
-        q_tokens = set(tokenize(query))
-        candidate_ids = self.inv.candidates(list(q_tokens))
+    print("Type a question to search similar ones (or 'exit'):\n")
 
-        scored = []
-        for cid in candidate_ids:
-            score = _token_overlap_score(q_tokens, self.q_tokens[cid])
-            if score >= threshold:
-                obj = self.by_id[cid]
-                scored.append({
-                    "id": cid,
-                    "question": obj["question"],
-                    "score": round(score, 4),
-                    "subject": obj.get("subject"),
-                    "semester": obj.get("semester"),
-                    "mark": obj.get("mark"),
-                    "paper_type": obj.get("paper_type"),
-                    "section": obj.get("section"),
-                    "family": obj.get("family")
-                })
+    while True:
+        q = input("Q> ").strip()
+        if q.lower() in {"exit", "quit"}:
+            break
 
-        scored.sort(key=lambda x: x["score"], reverse=True)
+        res = searcher.find_similar_questions(q)
+        print("\n" + json.dumps(res, indent=2, ensure_ascii=False) + "\n")
 
-        if not scored:
-            return {"matched": False, "reason": "No similar questions found"}
-
-        return {
-            "matched": True,
-            "match_type": "similar",
-            "results": scored[:top_k]
-        }
+if __name__ == "__main__":
+    main()
